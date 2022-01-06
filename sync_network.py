@@ -30,7 +30,13 @@ class SynchronicNeuralNetwork(NeuralNetwork):
                 nabla_w = []
                 nabla_b = []
                 # TODO: add your code
+                nabla_w = [np.zeros_like(i) for i in ma_nabla_w]
+                nabla_b = [np.zeros_like(i) for i in ma_nabla_b]
+                for i in range(self.num_layers):
+                    ringallreduce(ma_nabla_w[i], nabla_w[i], comm, MPI.SUM)
+                    ringallreduce(ma_nabla_b[i], nabla_b[i], comm, MPI.SUM)
 
+                # End of my code
                 # calculate work
                 self.weights = [w - self.eta * dw for w, dw in zip(self.weights, nabla_w)]
                 self.biases = [b - self.eta * db for b, db in zip(self.biases, nabla_b)]
