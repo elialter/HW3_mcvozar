@@ -30,11 +30,11 @@ class SynchronicNeuralNetwork(NeuralNetwork):
                 nabla_w = []
                 nabla_b = []
                 # TODO: add your code
-                nabla_w = [np.zeros_like(i) for i in ma_nabla_w]
-                nabla_b = [np.zeros_like(i) for i in ma_nabla_b]
-                for i in range(self.num_layers):
-                    ringallreduce(ma_nabla_w[i], nabla_w[i], comm, MPI.SUM)
-                    ringallreduce(ma_nabla_b[i], nabla_b[i], comm, MPI.SUM)
+                nabla_w = [np.zeros_like(element) for element in ma_nabla_w]
+                nabla_b = [np.zeros_like(element) for element in ma_nabla_b]
+                for idx in range(self.num_layers):
+                    ringallreduce(ma_nabla_w[idx], nabla_w[idx], comm, MPI.SUM)
+                    ringallreduce(ma_nabla_b[idx], nabla_b[idx], comm, MPI.SUM)
 
                 # End of my code
                 # calculate work

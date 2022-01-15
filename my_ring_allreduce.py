@@ -14,49 +14,29 @@ def ringallreduce(send, recv, comm, op):
     comm : MPI.Comm
     op : associative commutative binary operator
     """
-
-    size = comm.Get_size()
-    rank = comm.Get_rank()
-    recive_f = int((rank - 1) % size)
-    send_to = int((rank + 1) % size)
-    arr = np.copy(send)
-    for _ in range(0, len(send)%size):
-        np.append(arr, np.array([arr[0]]))
-
-    arr_len = len(arr)
-
-    for i in range(size - 1):
-        send_offset = (rank - i) % size
-        recive_offset = (recive_f - i) % size
-        send_data = np.array(arr[send_offset:arr_len-arr_len%size:size])
-        recive_data = np.zeros_like(send_data)
-
-        req = comm.Isend(send_data, dest=send_to, tag=88)
-        comm.Recv(recive_data, source=recive_f, tag=88)
-
-        for j in range(0, (arr_len-arr_len % size)//size):
-            arr[j*size+recive_offset] = op(arr[j*size+recive_offset], recive_data[j])
-        req.wait()
-
+    comm_size = comm.Get_size()
+    comm_rank = comm.Get_rank()
+    needed_receiver = int((comm_rank - 1) % comm_size)
+    needed_send = int((comm_rank + 1) % comm_size)
+    curr_process_copy = np.copy(send)
+    arr_len = len(curr_process_copy)
+    for _ in range(0, len(send) % comm_size):
+        np.append(curr_process_copy, np.array([curr_process_copy[0]]))
+    for idx in range(comm_size - 1):
+        receive_data = np.zeros_like(np.array(curr_process_copy[((comm_rank - idx) % comm_size):arr_len-arr_len % comm_size:comm_size]))
+        send_request = comm.Isend(np.array(curr_process_copy[((comm_rank - idx) % comm_size):arr_len-arr_len % comm_size:comm_size]), dest=needed_send, tag=88)
+        comm.Recv(receive_data, source=needed_receiver, tag=88)
+        for place in range(0, (arr_len-arr_len % comm_size) // comm_size):
+            curr_process_copy[place * comm_size + (needed_receiver - idx) % comm_size] = op(curr_process_copy[place * comm_size + (needed_receiver - idx) % comm_size], receive_data[place])
+        send_request.wait()
     comm.barrier()
-
-    for i in range(size - 1):
-        send_offset = (rank + 1 - i) % size
-        recive_offset = (recive_f + 1 - i) % size
-        send_data = np.array(arr[send_offset:arr_len-arr_len % size:size])
-        recive_data = np.zeros_like(send_data)
-
-        req = comm.Isend(send_data, dest=send_to, tag=88)
-        comm.Recv(recive_data, source=recive_f, tag=88)
-
-        for j in range(0, (arr_len-arr_len % size)//size):
-            arr[j*size+recive_offset] = recive_data[j]
-        req.wait()
-
+    for idx in range(comm_size - 1):
+        receive_data = np.zeros_like(np.array(curr_process_copy[(comm_rank + 1 - idx) % comm_size:arr_len-arr_len % comm_size:comm_size]))
+        send_request = comm.Isend(np.array(curr_process_copy[(comm_rank + 1 - idx) % comm_size:arr_len-arr_len % comm_size:comm_size]), dest=needed_send, tag=88)
+        comm.Recv(receive_data, source=needed_receiver, tag=88)
+        for place in range(0, (arr_len-arr_len % comm_size)//comm_size):
+            curr_process_copy[place * comm_size + (needed_receiver + 1 - idx) % comm_size] = receive_data[place]
+        send_request.wait()
     comm.barrier()
-
-    for i in range(len(recv)):
-        recv[i] = arr[i]
-
-
-#    raise NotImplementedError("To be implemented")
+    for idx in range(len(recv)):
+        recv[idx] = curr_process_copy[idx]

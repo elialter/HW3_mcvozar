@@ -13,23 +13,23 @@ def allreduce(send, recv, comm, op):
     comm : MPI.Comm
     op : associative commutative binary operator
     """
-    rank = comm.Get_rank()
-    size = comm.Get_size()
-    reciveData = np.empty_like(send)
+    comm_rank = comm.Get_rank()
+    comm_size = comm.Get_size()
+    needed_data = np.empty_like(send)
     for i in range(len(send)):
         recv[i] = send[i]
     comm.barrier()
 
-    for i in range(size):
-        if (i == rank):
+    for i in range(comm_size):
+        if (i == comm_rank):
             continue
         comm.Isend(send, dest=i, tag=88)
 
-    for i in range(size):
-        if (i == rank):
+    for i in range(comm_size):
+        if (i == comm_rank):
             continue
-        comm.Recv(reciveData, source=i, tag=88)
-        for j in range(reciveData.shape[0]):
-            recv[j] = op(recv[j], reciveData[j])
+        comm.Recv(needed_data, source=i, tag=88)
+        for j in range(needed_data.shape[0]):
+            recv[j] = op(recv[j], needed_data[j])
 
  #   raise NotImplementedError("To be implemented")
